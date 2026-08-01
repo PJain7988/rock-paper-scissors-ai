@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Predictive AI - Rock Paper Scissors</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;500;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #6c5ce7;
+            --bg-gradient: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+            --glass-bg: rgba(255, 255, 255, 0.05);
+            --glass-border: rgba(255, 255, 255, 0.1);
+            --text-main: #ffffff;
+            --text-muted: #a0a0b0;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Outfit', sans-serif;
+            background: var(--bg-gradient);
+            color: var(--text-main);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+
+        .container {
+            width: 90%;
+            max-width: 800px;
+            background: var(--glass-bg);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--glass-border);
+            border-radius: 24px;
+            padding: 40px;
+            text-align: center;
+            box-shadow: 0 25px 50px rgba(0,0,0,0.5);
+            animation: fadeIn 1s ease-out;
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            background: -webkit-linear-gradient(#fff, #a0a0b0);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        p.subtitle {
+            color: var(--text-muted);
+            margin-bottom: 40px;
+            font-weight: 300;
+        }
+
+        .scoreboard {
+            display: flex;
+            justify-content: space-around;
+            margin-bottom: 40px;
+            background: rgba(0,0,0,0.2);
+            padding: 20px;
+            border-radius: 16px;
+        }
+
+        .score-box h3 { margin: 0 0 10px 0; font-size: 1.2rem; color: var(--text-muted); }
+        .score-box span { font-size: 2.5rem; font-weight: 700; color: var(--primary); }
+
+        .battle-arena {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 40px;
+            min-height: 120px;
+        }
+
+        .move-display {
+            flex: 1;
+            font-size: 4rem;
+            opacity: 0;
+            transform: scale(0.5);
+            transition: all 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        .move-display.show {
+            opacity: 1;
+            transform: scale(1);
+        }
+
+        .vs { font-size: 1.5rem; font-weight: 700; color: var(--text-muted); flex: 0.5; }
+
+        .controls {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+        }
+
+        button.move-btn {
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            border-radius: 16px;
+            padding: 20px 30px;
+            font-size: 3rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        button.move-btn:hover {
+            transform: translateY(-5px);
+            background: rgba(255,255,255,0.1);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.3);
+            border-color: var(--primary);
+        }
+
+        button.move-btn:active { transform: translateY(0); }
+
+        .status-msg {
+            margin-top: 30px;
+            font-size: 1.5rem;
+            font-weight: 500;
+            height: 30px;
+            color: var(--primary);
+        }
+
+        .loading {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            font-size: 0.9rem;
+            color: var(--text-muted);
+            display: none;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="loading" id="loading">Connecting to Markov Chain AI...</div>
+
+    <div class="container">
+        <h1>Predictive AI Agent</h1>
+        <p class="subtitle">Multi-Order Markov Chain Model. Can you outsmart it?</p>
+
+        <div class="scoreboard">
+            <div class="score-box">
+                <h3>You</h3>
+                <span id="player-score">0</span>
+            </div>
+            <div class="score-box">
+                <h3>Ties</h3>
+                <span id="tie-score">0</span>
+            </div>
+            <div class="score-box">
+                <h3>AI Agent</h3>
+                <span id="ai-score">0</span>
+            </div>
+        </div>
+
+        <div class="battle-arena">
+            <div class="move-display" id="player-display">✊</div>
+            <div class="vs">VS</div>
+            <div class="move-display" id="ai-display">🤖</div>
+        </div>
+
+        <div class="controls">
+            <button class="move-btn" onclick="playTurn('R')">✊</button>
+            <button class="move-btn" onclick="playTurn('P')">✋</button>
+            <button class="move-btn" onclick="playTurn('S')">✌️</button>
+        </div>
+
+        <div class="status-msg" id="status-msg">Make your first move...</div>
+    </div>
+
+    <script>
+        let aiNextMove = "R"; // Default first move
+        let playerScore = 0, aiScore = 0, tieScore = 0;
+        let isProcessing = false;
+
+        const emojiMap = { "R": "✊", "P": "✋", "S": "✌️" };
+        
+        async function fetchNextMove(playerMove) {
+            document.getElementById('loading').style.display = 'block';
+            try {
+                const response = await fetch('/api/play', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ move: playerMove })
+                });
+                
+                if(!response.ok) throw new Error("API Error");
+                const data = await response.json();
+                aiNextMove = data.ai_move;
+            } catch (e) {
+                console.error("Failed to reach API, using fallback.");
+                // Fallback to random if API fails (so game doesn't break)
+                const moves = ["R", "P", "S"];
+                aiNextMove = moves[Math.floor(Math.random() * 3)];
+            } finally {
+                document.getElementById('loading').style.display = 'none';
+                isProcessing = false;
+            }
+        }
+
+        async function playTurn(playerMove) {
+            if (isProcessing) return;
+            isProcessing = true;
+
+            const aiMove = aiNextMove;
+            const pDisplay = document.getElementById('player-display');
+            const aDisplay = document.getElementById('ai-display');
+            const status = document.getElementById('status-msg');
+
+            // Reset animations
+            pDisplay.classList.remove('show');
+            aDisplay.classList.remove('show');
+            
+            setTimeout(() => {
+                pDisplay.innerText = emojiMap[playerMove];
+                aDisplay.innerText = emojiMap[aiMove];
+                pDisplay.classList.add('show');
+                aDisplay.classList.add('show');
+
+                // Determine winner
+                if (playerMove === aiMove) {
+                    tieScore++;
+                    document.getElementById('tie-score').innerText = tieScore;
+                    status.innerText = "It's a Tie!";
+                    status.style.color = "#a0a0b0";
+                } else if (
+                    (playerMove === 'R' && aiMove === 'S') ||
+                    (playerMove === 'P' && aiMove === 'R') ||
+                    (playerMove === 'S' && aiMove === 'P')
+                ) {
+                    playerScore++;
+                    document.getElementById('player-score').innerText = playerScore;
+                    status.innerText = "You Won!";
+                    status.style.color = "#00b894";
+                } else {
+                    aiScore++;
+                    document.getElementById('ai-score').innerText = aiScore;
+                    status.innerText = "AI Won!";
+                    status.style.color = "#ff7675";
+                }
+
+                // Fetch AI's *next* move based on what we just played
+                fetchNextMove(playerMove);
+                
+            }, 300);
+        }
+
+        // Initialize connection
+        fetchNextMove("");
+    </script>
+</body>
+</html>
