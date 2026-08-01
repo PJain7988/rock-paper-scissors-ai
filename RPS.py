@@ -1,90 +1,80 @@
-def player(prev_play, opponent_history=[]):
+from typing import List, Dict
+
+def player(prev_play: str, opponent_history: List[str] = [], play_order: Dict[str, int] = {}) -> str:
     """
-    Adaptive Rock-Paper-Scissors player.
+    Adaptive Rock-Paper-Scissors player using a Multi-Order Markov Chain.
 
     The bot:
-    1. Stores the opponent's previous moves.
-    2. Looks for repeated patterns.
-    3. Predicts the opponent's next move.
-    4. Plays the move that beats the prediction.
+    1. Tracks sequences of opponent moves up to length `n`.
+    2. Builds a transition probability dictionary (`play_order`).
+    3. Predicts the next move by looking for the longest matching historical sequence.
+    4. Seamlessly falls back to shorter sequences (n-gram decay) if the longest hasn't been observed.
+
+    Args:
+        prev_play (str): The opponent's last move ('R', 'P', 'S', or '' for first game).
+        opponent_history (List[str]): Mutable list tracking the opponent's past moves.
+        play_order (Dict[str, int]): Mutable dict tracking frequency of move sequences.
+
+    Returns:
+        str: Our move ('R', 'P', or 'S').
     """
 
-    # Store opponent's previous move
-    if prev_play:
-        opponent_history.append(prev_play)
+    if not prev_play:
+        prev_play = "R"
 
-    # First move
-    if not opponent_history:
-        return "R"
+    opponent_history.append(prev_play)
 
-    # -------------------------------------------------
-    # Strategy 1: Look for a repeated sequence
-    # -------------------------------------------------
+    # Maximum sequence length to track (Multi-order limit)
+    n = 6
 
-    # We need at least 5 previous moves to find patterns.
-    if len(opponent_history) >= 5:
+    # Update the transition matrix for all observed sequence lengths
+    if len(opponent_history) >= 2:
+        max_len = min(len(opponent_history), n + 1)
+        # Record sequences of lengths from 2 to max_len
+        # e.g., if history is R, P, S, we record "RP", "PS", "RPS"
+        for i in range(2, max_len + 1):
+            seq = "".join(opponent_history[-i:])
+            if seq in play_order:
+                play_order[seq] += 1
+            else:
+                play_order[seq] = 1
 
-        # Use the last 3 moves as our current pattern.
-        pattern_length = 3
-        current_pattern = opponent_history[-pattern_length:]
+    # Predict the opponent's next move
+    potential_moves = ["R", "P", "S"]
+    prediction = "P"  # Default prediction
 
-        predictions = []
+    # Look back for patterns, starting from the longest context and decaying
+    max_context = min(len(opponent_history), n)
+    
+    for i in range(max_context, 0, -1):
+        context = "".join(opponent_history[-i:])
+        
+        # Calculate frequencies of possible next moves given this context
+        counts = {}
+        for move in potential_moves:
+            counts[move] = play_order.get(context + move, 0)
+            
+        if sum(counts.values()) > 0:
+            # We found a matching context! Pick the most probable next move.
+            prediction = max(counts, key=counts.get)
+            break
 
-        # Search previous history for the same pattern.
-        for i in range(len(opponent_history) - pattern_length):
-            pattern = opponent_history[i:i + pattern_length]
-
-            if pattern == current_pattern:
-                next_index = i + pattern_length
-
-                if next_index < len(opponent_history):
-                    predictions.append(opponent_history[next_index])
-
-        # If we found a repeated pattern,
-        # predict the most common following move.
-        if predictions:
-
-            counts = {
-                "R": predictions.count("R"),
-                "P": predictions.count("P"),
-                "S": predictions.count("S")
-            }
-
-            predicted_move = max(counts, key=counts.get)
-
-            return counter_move(predicted_move)
-
-    # -------------------------------------------------
-    # Strategy 2: Frequency analysis
-    # -------------------------------------------------
-
-    counts = {
-        "R": opponent_history.count("R"),
-        "P": opponent_history.count("P"),
-        "S": opponent_history.count("S")
-    }
-
-    most_common_move = max(counts, key=counts.get)
-
-    return counter_move(most_common_move)
+    return counter_move(prediction)
 
 
-def counter_move(move):
+def counter_move(move: str) -> str:
     """
     Return the move that beats the given move.
 
-    Rock -> Paper
-    Paper -> Scissors
-    Scissors -> Rock
+    Args:
+        move (str): The opponent's predicted move.
+        
+    Returns:
+        str: The winning counter move.
     """
-
-    if move == "R":
-        return "P"
-
-    if move == "P":
-        return "S"
-
-    if move == "S":
-        return "R"
-
-    return "R"
+    counters = {
+        "R": "P",
+        "P": "S",
+        "S": "R"
+    }
+    return counters.get(move, "R")
