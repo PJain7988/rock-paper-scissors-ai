@@ -1,1 +1,1 @@
-# Add any pip dependencies here if needed in the future
+torch==2.1.0

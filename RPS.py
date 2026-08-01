@@ -1,80 +1,103 @@
+import torch
+import torch.nn as nn
+import torch.optim as optim
 from typing import List, Dict
 
-def player(prev_play: str, opponent_history: List[str] = [], play_order: Dict[str, int] = {}) -> str:
-    """
-    Adaptive Rock-Paper-Scissors player using a Multi-Order Markov Chain.
-
-    The bot:
-    1. Tracks sequences of opponent moves up to length `n`.
-    2. Builds a transition probability dictionary (`play_order`).
-    3. Predicts the next move by looking for the longest matching historical sequence.
-    4. Seamlessly falls back to shorter sequences (n-gram decay) if the longest hasn't been observed.
-
-    Args:
-        prev_play (str): The opponent's last move ('R', 'P', 'S', or '' for first game).
-        opponent_history (List[str]): Mutable list tracking the opponent's past moves.
-        play_order (Dict[str, int]): Mutable dict tracking frequency of move sequences.
-
-    Returns:
-        str: Our move ('R', 'P', or 'S').
-    """
-
-    if not prev_play:
-        prev_play = "R"
-
-    opponent_history.append(prev_play)
-
-    # Maximum sequence length to track (Multi-order limit)
-    n = 6
-
-    # Update the transition matrix for all observed sequence lengths
-    if len(opponent_history) >= 2:
-        max_len = min(len(opponent_history), n + 1)
-        # Record sequences of lengths from 2 to max_len
-        # e.g., if history is R, P, S, we record "RP", "PS", "RPS"
-        for i in range(2, max_len + 1):
-            seq = "".join(opponent_history[-i:])
-            if seq in play_order:
-                play_order[seq] += 1
-            else:
-                play_order[seq] = 1
-
-    # Predict the opponent's next move
-    potential_moves = ["R", "P", "S"]
-    prediction = "P"  # Default prediction
-
-    # Look back for patterns, starting from the longest context and decaying
-    max_context = min(len(opponent_history), n)
-    
-    for i in range(max_context, 0, -1):
-        context = "".join(opponent_history[-i:])
+class RPSPredictor(nn.Module):
+    """Deep Learning LSTM Model for sequence prediction."""
+    def __init__(self):
+        super().__init__()
+        # Input size is 3 (one-hot encoded R, P, S)
+        self.lstm = nn.LSTM(input_size=3, hidden_size=16, batch_first=True)
+        self.fc = nn.Linear(16, 3)
         
-        # Calculate frequencies of possible next moves given this context
-        counts = {}
-        for move in potential_moves:
-            counts[move] = play_order.get(context + move, 0)
+    def forward(self, x):
+        # x shape: (batch, seq_len, 3)
+        out, _ = self.lstm(x)
+        # We only care about the last output in the sequence
+        out = out[:, -1, :] 
+        out = self.fc(out)  
+        return out
+
+# Global dictionary to persist the PyTorch model and optimizer across function calls
+dl_state = {
+    'model': None,
+    'optimizer': None,
+    'criterion': None,
+    'history_idx': []
+}
+
+move_to_idx = {'R': 0, 'P': 1, 'S': 2}
+idx_to_move = {0: 'R', 1: 'P', 2: 'S'}
+
+def one_hot(idx: int) -> torch.Tensor:
+    t = torch.zeros(3)
+    t[idx] = 1.0
+    return t
+
+def player(prev_play: str, opponent_history: List[str] = [], play_order: Dict = {}) -> str:
+    """
+    Rock-Paper-Scissors AI powered by a Deep Learning LSTM Network.
+    
+    The neural network trains 'online' (after every single move) to continuously
+    adapt its weights based on the opponent's changing strategy.
+    """
+    # Initialize the Neural Network on first run
+    if dl_state['model'] is None:
+        dl_state['model'] = RPSPredictor()
+        # High learning rate because we only have ~1000 games to learn
+        dl_state['optimizer'] = optim.Adam(dl_state['model'].parameters(), lr=0.05)
+        dl_state['criterion'] = nn.CrossEntropyLoss()
+        
+    # Reset for a new opponent
+    if not prev_play:
+        opponent_history.clear()
+        dl_state['history_idx'].clear()
+        return "R"
+        
+    # Record opponent's move
+    idx = move_to_idx[prev_play]
+    opponent_history.append(prev_play)
+    dl_state['history_idx'].append(idx)
+    
+    # We will look at the last 5 moves to predict the 6th
+    seq_len = 5
+    
+    # --- ONLINE TRAINING PHASE ---
+    if len(dl_state['history_idx']) > seq_len:
+        # The input X was the `seq_len` moves before the current move
+        X_train_indices = dl_state['history_idx'][-(seq_len+1):-1]
+        y_train_idx = idx # The true label is what the opponent just played
+        
+        # Prepare Tensors
+        X_train = torch.stack([one_hot(i) for i in X_train_indices]).unsqueeze(0)
+        y_train = torch.tensor([y_train_idx], dtype=torch.long)
+        
+        # Backpropagation
+        dl_state['model'].train()
+        dl_state['optimizer'].zero_grad()
+        out = dl_state['model'](X_train)
+        loss = dl_state['criterion'](out, y_train)
+        loss.backward()
+        dl_state['optimizer'].step()
+        
+    # --- INFERENCE (PREDICTION) PHASE ---
+    if len(dl_state['history_idx']) >= seq_len:
+        X_test_indices = dl_state['history_idx'][-seq_len:]
+        X_test = torch.stack([one_hot(i) for i in X_test_indices]).unsqueeze(0)
+        
+        dl_state['model'].eval()
+        with torch.no_grad():
+            out = dl_state['model'](X_test)
+            predicted_idx = torch.argmax(out, dim=1).item()
+            predicted_move = idx_to_move[predicted_idx]
             
-        if sum(counts.values()) > 0:
-            # We found a matching context! Pick the most probable next move.
-            prediction = max(counts, key=counts.get)
-            break
-
-    return counter_move(prediction)
-
+        return counter_move(predicted_move)
+    else:
+        # Fallback for the first few games before sequence length is reached
+        return "P"
 
 def counter_move(move: str) -> str:
-    """
-    Return the move that beats the given move.
-
-    Args:
-        move (str): The opponent's predicted move.
-        
-    Returns:
-        str: The winning counter move.
-    """
-    counters = {
-        "R": "P",
-        "P": "S",
-        "S": "R"
-    }
+    """Return the winning move."""
+    counters = {"R": "P", "P": "S", "S": "R"}
     return counters.get(move, "R")
