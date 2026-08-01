@@ -1,16 +1,36 @@
 import random
+from typing import List, Callable, Tuple, Any
 
+# Note: We intentionally use mutable default arguments `opponent_history=[]` 
+# here to preserve state across function calls, which is a requirement for 
+# the specific testing architecture used in this project.
 
-def quincy(prev_play, opponent_history=[]):
-    """Quincy follows a fixed repeating pattern."""
+def quincy(prev_play: str, opponent_history: List[str] = []) -> str:
+    """Quincy follows a fixed repeating pattern.
+    
+    Args:
+        prev_play (str): The opponent's previous move.
+        opponent_history (list): A list tracking the opponent's moves.
+        
+    Returns:
+        str: The selected move ('R', 'P', or 'S').
+    """
     sequence = ["R", "R", "P", "P", "S"]
     move = sequence[len(opponent_history) % len(sequence)]
     opponent_history.append(move)
     return move
 
 
-def abbey(prev_play, opponent_history=[]):
-    """Abbey tries to respond to the player's previous move."""
+def abbey(prev_play: str, opponent_history: List[str] = []) -> str:
+    """Abbey tries to respond to the player's previous move.
+    
+    Args:
+        prev_play (str): The opponent's previous move.
+        opponent_history (list): A list tracking the opponent's moves.
+        
+    Returns:
+        str: The selected move.
+    """
     if prev_play == "":
         move = "R"
     elif prev_play == "R":
@@ -24,8 +44,16 @@ def abbey(prev_play, opponent_history=[]):
     return move
 
 
-def kris(prev_play, opponent_history=[]):
-    """Kris uses a simple counter strategy."""
+def kris(prev_play: str, opponent_history: List[str] = []) -> str:
+    """Kris uses a simple counter strategy.
+    
+    Args:
+        prev_play (str): The opponent's previous move.
+        opponent_history (list): A list tracking the opponent's moves.
+        
+    Returns:
+        str: The selected move.
+    """
     if prev_play == "":
         move = "R"
     elif prev_play == "R":
@@ -39,8 +67,16 @@ def kris(prev_play, opponent_history=[]):
     return move
 
 
-def mrugesh(prev_play, opponent_history=[]):
-    """Mrugesh uses a simple pattern based on previous moves."""
+def mrugesh(prev_play: str, opponent_history: List[str] = []) -> str:
+    """Mrugesh uses a simple pattern based on previous moves.
+    
+    Args:
+        prev_play (str): The opponent's previous move.
+        opponent_history (list): A list tracking the opponent's moves.
+        
+    Returns:
+        str: The selected move.
+    """
     if prev_play:
         opponent_history.append(prev_play)
 
@@ -57,19 +93,27 @@ def mrugesh(prev_play, opponent_history=[]):
         return "R"
 
 
-def get_player_name(player):
+def get_player_name(player: Callable) -> str:
     """Return the function name."""
     return player.__name__
 
 
-def play(player1, player2, num_games, verbose=False):
+def play(player1: Callable, player2: Callable, num_games: int, verbose: bool = False) -> Tuple[int, int]:
     """
     Play a match between two players.
 
     player1 and player2 must be functions that accept
     the opponent's previous move and return R/P/S.
+    
+    Args:
+        player1 (Callable): The first player function.
+        player2 (Callable): The second player function.
+        num_games (int): The number of games to play.
+        verbose (bool): Whether to print out each game's result.
+        
+    Returns:
+        Tuple[int, int]: The scores of player1 and player2.
     """
-
     p1_prev_play = ""
     p2_prev_play = ""
 
@@ -77,7 +121,6 @@ def play(player1, player2, num_games, verbose=False):
     p2_score = 0
 
     for game in range(num_games):
-
         p1_play = player1(p2_prev_play)
         p2_play = player2(p1_prev_play)
 
@@ -89,7 +132,6 @@ def play(player1, player2, num_games, verbose=False):
 
         if p1_play == p2_play:
             result = "Tie"
-
         elif (
             (p1_play == "R" and p2_play == "S")
             or (p1_play == "P" and p2_play == "R")
@@ -97,7 +139,6 @@ def play(player1, player2, num_games, verbose=False):
         ):
             p1_score += 1
             result = "Player 1 wins"
-
         else:
             p2_score += 1
             result = "Player 2 wins"
@@ -114,8 +155,8 @@ def play(player1, player2, num_games, verbose=False):
 
     print("\nMatch Result")
     print("-" * 30)
-    print(f"Player 1: {p1_score}")
-    print(f"Player 2: {p2_score}")
+    print(f"Player 1 ({get_player_name(player1)}): {p1_score}")
+    print(f"Player 2 ({get_player_name(player2)}): {p2_score}")
     print(f"Ties: {num_games - p1_score - p2_score}")
 
     return p1_score, p2_score
