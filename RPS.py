@@ -1,53 +1,85 @@
-import torch
-import torch.nn as nn
-import torch.optim as optim
+import numpy as np
 from typing import List, Dict
 
-class RPSPredictor(nn.Module):
-    """Deep Learning LSTM Model for sequence prediction."""
-    def __init__(self):
-        super().__init__()
-        # Input size is 3 (one-hot encoded R, P, S)
-        self.lstm = nn.LSTM(input_size=3, hidden_size=16, batch_first=True)
-        self.fc = nn.Linear(16, 3)
+class RPSPredictorNumPy:
+    """Deep Learning MLP Model for sequence prediction using NumPy."""
+    def __init__(self, input_size=15, hidden_size=16, output_size=3, lr=0.05):
+        # Weights and biases
+        self.W1 = np.random.randn(input_size, hidden_size) * 0.1
+        self.b1 = np.zeros((1, hidden_size))
+        self.W2 = np.random.randn(hidden_size, output_size) * 0.1
+        self.b2 = np.zeros((1, output_size))
         
-    def forward(self, x):
-        # x shape: (batch, seq_len, 3)
-        out, _ = self.lstm(x)
-        # We only care about the last output in the sequence
-        out = out[:, -1, :] 
-        out = self.fc(out)  
-        return out
+        self.lr = lr
+        
+        # Cache for backprop
+        self.X = None
+        self.Z1 = None
+        self.A1 = None
+        self.Z2 = None
+        self.A2 = None
 
-# Global dictionary to persist the PyTorch model and optimizer across function calls
+    def relu(self, Z):
+        return np.maximum(0, Z)
+        
+    def relu_deriv(self, Z):
+        return Z > 0
+        
+    def softmax(self, Z):
+        expZ = np.exp(Z - np.max(Z, axis=1, keepdims=True))
+        return expZ / np.sum(expZ, axis=1, keepdims=True)
+        
+    def forward(self, X):
+        self.X = X
+        self.Z1 = np.dot(X, self.W1) + self.b1
+        self.A1 = self.relu(self.Z1)
+        self.Z2 = np.dot(self.A1, self.W2) + self.b2
+        self.A2 = self.softmax(self.Z2)
+        return self.A2
+        
+    def backward(self, Y_true_onehot):
+        m = self.X.shape[0]
+        
+        # dZ2 is A2 - Y for cross-entropy with softmax
+        dZ2 = self.A2 - Y_true_onehot
+        dW2 = np.dot(self.A1.T, dZ2) / m
+        db2 = np.sum(dZ2, axis=0, keepdims=True) / m
+        
+        dA1 = np.dot(dZ2, self.W2.T)
+        dZ1 = dA1 * self.relu_deriv(self.Z1)
+        dW1 = np.dot(self.X.T, dZ1) / m
+        db1 = np.sum(dZ1, axis=0, keepdims=True) / m
+        
+        # Update parameters (gradient descent, similar to SGD)
+        self.W1 -= self.lr * dW1
+        self.b1 -= self.lr * db1
+        self.W2 -= self.lr * dW2
+        self.b2 -= self.lr * db2
+
+# Global dictionary to persist the model across function calls
 dl_state = {
     'model': None,
-    'optimizer': None,
-    'criterion': None,
     'history_idx': []
 }
 
 move_to_idx = {'R': 0, 'P': 1, 'S': 2}
 idx_to_move = {0: 'R', 1: 'P', 2: 'S'}
 
-def one_hot(idx: int) -> torch.Tensor:
-    t = torch.zeros(3)
+def one_hot(idx: int):
+    t = np.zeros(3)
     t[idx] = 1.0
     return t
 
 def player(prev_play: str, opponent_history: List[str] = [], play_order: Dict = {}) -> str:
     """
-    Rock-Paper-Scissors AI powered by a Deep Learning LSTM Network.
+    Rock-Paper-Scissors AI powered by a NumPy MLP Network.
     
     The neural network trains 'online' (after every single move) to continuously
     adapt its weights based on the opponent's changing strategy.
     """
     # Initialize the Neural Network on first run
     if dl_state['model'] is None:
-        dl_state['model'] = RPSPredictor()
-        # High learning rate because we only have ~1000 games to learn
-        dl_state['optimizer'] = optim.Adam(dl_state['model'].parameters(), lr=0.05)
-        dl_state['criterion'] = nn.CrossEntropyLoss()
+        dl_state['model'] = RPSPredictorNumPy(input_size=15, hidden_size=16, output_size=3, lr=0.1)
         
     # Reset for a new opponent
     if not prev_play:
@@ -69,28 +101,22 @@ def player(prev_play: str, opponent_history: List[str] = [], play_order: Dict = 
         X_train_indices = dl_state['history_idx'][-(seq_len+1):-1]
         y_train_idx = idx # The true label is what the opponent just played
         
-        # Prepare Tensors
-        X_train = torch.stack([one_hot(i) for i in X_train_indices]).unsqueeze(0)
-        y_train = torch.tensor([y_train_idx], dtype=torch.long)
+        # Prepare arrays
+        X_train = np.array([one_hot(i) for i in X_train_indices]).flatten().reshape(1, -1)
+        y_train = one_hot(y_train_idx).reshape(1, -1)
         
-        # Backpropagation
-        dl_state['model'].train()
-        dl_state['optimizer'].zero_grad()
-        out = dl_state['model'](X_train)
-        loss = dl_state['criterion'](out, y_train)
-        loss.backward()
-        dl_state['optimizer'].step()
+        # Forward pass & Backpropagation
+        dl_state['model'].forward(X_train)
+        dl_state['model'].backward(y_train)
         
     # --- INFERENCE (PREDICTION) PHASE ---
     if len(dl_state['history_idx']) >= seq_len:
         X_test_indices = dl_state['history_idx'][-seq_len:]
-        X_test = torch.stack([one_hot(i) for i in X_test_indices]).unsqueeze(0)
+        X_test = np.array([one_hot(i) for i in X_test_indices]).flatten().reshape(1, -1)
         
-        dl_state['model'].eval()
-        with torch.no_grad():
-            out = dl_state['model'](X_test)
-            predicted_idx = torch.argmax(out, dim=1).item()
-            predicted_move = idx_to_move[predicted_idx]
+        out = dl_state['model'].forward(X_test)
+        predicted_idx = np.argmax(out, axis=1)[0]
+        predicted_move = idx_to_move[predicted_idx]
             
         return counter_move(predicted_move)
     else:
