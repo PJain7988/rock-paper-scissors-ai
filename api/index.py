@@ -199,11 +199,7 @@ HTML_CONTENT = """<!DOCTYPE html>
             </div>
             <div class="nav-links flex items-center">
                 <a href="#" class="active">Play</a>
-                <a href="#">Leaderboard</a>
-                <a href="#">About</a>
-                <div class="w-8 h-8 rounded-full border border-gray-500 ml-5 flex items-center justify-center bg-gray-800">
-                    <span class="text-xs">👤</span>
-                </div>
+                <span id="nav-score" class="font-bold text-purple-400 ml-4 tracking-wide">Score: 0 - 0</span>
             </div>
         </div>
 
@@ -399,6 +395,7 @@ HTML_CONTENT = """<!DOCTYPE html>
             setTimeout(() => { overlay.classList.remove('show-result'); }, 1000);
 
             // Update Analytics
+            document.getElementById('nav-score').innerText = `Score: ${scorePlayer} - ${scoreAI}`;
             history.push(userMove);
             matches++;
             document.getElementById('stat-match').innerText = '#' + matches;
