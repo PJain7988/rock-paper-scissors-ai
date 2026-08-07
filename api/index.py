@@ -5,154 +5,333 @@ HTML_CONTENT = """<!DOCTYPE html>
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Rock Paper Scissors</title>
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;800&display=swap" rel="stylesheet">
+    <title>RPS AI</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
-        :root {
-            --primary: #8b5cf6;
-            --secondary: #ec4899;
-            --dark: #0f172a;
-            --card-bg: rgba(30, 41, 59, 0.6);
-            --text-main: #f8fafc;
-            --text-muted: #94a3b8;
-        }
-        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Outfit', sans-serif; }
         body {
-            background: var(--dark);
+            font-family: 'Inter', sans-serif;
+            background-color: #0f0a1c;
             background-image: 
-                radial-gradient(at 0% 0%, rgba(139, 92, 246, 0.15) 0px, transparent 50%),
-                radial-gradient(at 100% 100%, rgba(236, 72, 153, 0.15) 0px, transparent 50%);
-            color: var(--text-main);
+                radial-gradient(circle at 10% 20%, rgba(139, 92, 246, 0.4) 0%, transparent 40%),
+                radial-gradient(circle at 90% 80%, rgba(236, 72, 153, 0.4) 0%, transparent 40%);
+            color: white;
             min-height: 100vh;
             display: flex;
             align-items: center;
             justify-content: center;
             overflow: hidden;
-            padding: 20px;
         }
-        .container { display: flex; gap: 30px; width: 100%; max-width: 1200px; z-index: 10; }
-        .glass-panel {
-            background: var(--card-bg);
-            backdrop-filter: blur(20px);
-            -webkit-backdrop-filter: blur(20px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
+
+        .app-container {
+            background: rgba(18, 14, 28, 0.85);
+            backdrop-filter: blur(40px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
             border-radius: 24px;
-            padding: 40px;
-            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
-            text-align: center;
+            width: 1100px;
+            height: 700px;
+            box-shadow: 0 30px 60px rgba(0,0,0,0.6);
+            display: flex;
+            flex-direction: column;
+            padding: 20px 40px;
+            position: relative;
+        }
+
+        .navbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding-bottom: 20px;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+            margin-bottom: 30px;
+        }
+
+        .nav-links a {
+            color: #94a3b8;
+            margin: 0 15px;
+            text-decoration: none;
+            font-weight: 500;
+            transition: color 0.2s;
+        }
+        .nav-links a:hover, .nav-links a.active {
+            color: white;
+        }
+        .nav-links a.active {
+            border-bottom: 2px solid #a855f7;
+            padding-bottom: 25px;
+        }
+
+        .main-content {
+            display: flex;
+            gap: 30px;
+            height: 100%;
+        }
+
+        .glass-card {
+            background: linear-gradient(145deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.01) 100%);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 20px;
+            padding: 30px;
+        }
+
+        .play-area {
+            flex: 1.5;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
+        }
+
+        .analytics-area {
             flex: 1;
+            display: flex;
+            flex-direction: column;
         }
-        h1 {
-            font-weight: 800; font-size: 2.5rem; margin-bottom: 10px;
-            background: linear-gradient(to right, var(--primary), var(--secondary));
-            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+
+        .title { font-size: 2.2rem; font-weight: 800; letter-spacing: 1px; margin-bottom: 20px; }
+        .subtitle { font-size: 1.2rem; font-weight: 600; margin-bottom: 5px; }
+        .status-text { color: #94a3b8; margin-bottom: 15px; }
+        
+        .score-display {
+            font-size: 0.9rem;
+            color: #94a3b8;
+            margin-bottom: 40px;
         }
-        p.subtitle { color: var(--text-muted); font-size: 1.1rem; margin-bottom: 30px; }
-        .score-board {
-            display: flex; justify-content: space-around;
-            background: rgba(0,0,0,0.3); border-radius: 16px; padding: 20px; margin-bottom: 30px;
+        .score-display span { color: white; font-weight: 700; }
+        .score-display .ai-score { color: #ec4899; }
+
+        .moves-container {
+            display: flex;
+            gap: 20px;
+            width: 100%;
+            justify-content: center;
         }
-        .score-box { display: flex; flex-direction: column; }
-        .score-box span.label { font-size: 0.9rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 5px; }
-        .score-box span.score { font-size: 2.5rem; font-weight: 800; color: var(--text-main); }
-        .battle-arena { display: flex; align-items: center; justify-content: center; gap: 20px; margin-bottom: 30px; min-height: 120px; }
-        .move-display {
-            font-size: 4rem; width: 100px; height: 100px; display: flex; align-items: center; justify-content: center;
-            background: rgba(255,255,255,0.05); border-radius: 50%; border: 1px dashed rgba(255,255,255,0.2); transition: all 0.3s ease;
+
+        .move-card {
+            background: rgba(0,0,0,0.3);
+            border: 2px solid;
+            border-radius: 16px;
+            width: 130px;
+            height: 180px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
         }
-        .vs { font-weight: 800; font-size: 1.5rem; color: var(--text-muted); }
-        .result-text { font-size: 1.5rem; font-weight: 600; height: 35px; margin-bottom: 30px; letter-spacing: 1px; }
-        .win { color: #4ade80; text-shadow: 0 0 10px rgba(74, 222, 128, 0.5); }
-        .lose { color: #f87171; text-shadow: 0 0 10px rgba(248, 113, 113, 0.5); }
-        .tie { color: #fbbf24; }
-        .controls { display: flex; justify-content: center; gap: 20px; }
-        button.move-btn {
-            background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); color: white; font-size: 2.5rem;
-            width: 80px; height: 80px; border-radius: 20px; cursor: pointer; transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
-            display: flex; align-items: center; justify-content: center;
+
+        .move-card::before {
+            content: ''; position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+            opacity: 0.2; z-index: 0; transition: opacity 0.3s;
         }
-        button.move-btn:hover:not(:disabled) {
-            transform: translateY(-5px) scale(1.1); background: rgba(255, 255, 255, 0.1); border-color: rgba(255, 255, 255, 0.3); box-shadow: 0 10px 25px -5px rgba(139, 92, 246, 0.4);
+
+        .move-card:hover { transform: translateY(-5px) scale(1.05); }
+        .move-card:active { transform: scale(0.95); }
+        .move-card:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+        .move-card > * { z-index: 1; }
+        .move-icon { font-size: 4rem; margin-bottom: 15px; filter: drop-shadow(0 0 10px rgba(255,255,255,0.3)); }
+        .move-name { font-weight: 700; font-size: 1.1rem; }
+
+        .move-rock { border-color: #8b5cf6; }
+        .move-rock::before { background: linear-gradient(to bottom, transparent, #8b5cf6); }
+        .move-paper { border-color: #ec4899; }
+        .move-paper::before { background: linear-gradient(to bottom, transparent, #ec4899); }
+        .move-scissors { border-color: #a855f7; }
+        .move-scissors::before { background: linear-gradient(to bottom, transparent, #a855f7); }
+
+        .stats-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
         }
-        button.move-btn:active:not(:disabled) { transform: scale(0.95); }
-        button.move-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-        .chart-container { position: relative; height: 300px; width: 100%; margin-top: 20px; }
-        .bg-blob { position: absolute; filter: blur(100px); z-index: 1; opacity: 0.4; animation: float 10s infinite ease-in-out alternate; }
-        .blob-1 { background: var(--primary); width: 400px; height: 400px; border-radius: 50%; top: -100px; left: -100px; }
-        .blob-2 { background: var(--secondary); width: 500px; height: 500px; border-radius: 50%; bottom: -150px; right: -100px; animation-delay: -5s; }
-        @keyframes float { 0% { transform: translate(0, 0) rotate(0deg); } 100% { transform: translate(50px, 80px) rotate(20deg); } }
-        @media (max-width: 900px) { .container { flex-direction: column; } }
+
+        .chart-wrapper {
+            flex: 1;
+            position: relative;
+            width: 100%;
+        }
+        
+        .result-overlay {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 3rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.3s;
+            text-shadow: 0 10px 30px rgba(0,0,0,0.8);
+            z-index: 50;
+        }
+
+        .show-result { opacity: 1; animation: popIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
+        
+        @keyframes popIn {
+            0% { transform: translate(-50%, -50%) scale(0.5); opacity: 0; }
+            100% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+        }
+
+        .win-text { color: #4ade80; }
+        .lose-text { color: #f87171; }
+        .tie-text { color: #fbbf24; }
     </style>
 </head>
 <body>
-    <div class="bg-blob blob-1"></div>
-    <div class="bg-blob blob-2"></div>
-    <div class="container">
-        <!-- Play Arena -->
-        <div class="glass-panel">
-            <h1>AI ROCK-PAPER-SCISSORS</h1>
-            <p class="subtitle">YOUR MOVE<br>AI is ready</p>
-            <div class="score-board">
-                <div class="score-box"><span class="label">Player</span><span class="score" id="score-you">0</span></div>
-                <div class="score-box"><span class="label">Draws</span><span class="score" id="score-ties" style="font-size: 1.5rem; color: var(--text-muted); margin-top:10px;">0</span></div>
-                <div class="score-box"><span class="label">AI</span><span class="score" id="score-ai">0</span></div>
+
+    <div class="app-container">
+        
+        <!-- Navbar -->
+        <div class="navbar">
+            <div class="flex items-center gap-3">
+                <div class="w-8 h-8 rounded-full border-2 border-purple-500 flex items-center justify-center">
+                    <span class="text-purple-500 text-xs">⚛</span>
+                </div>
+                <span class="font-bold text-xl tracking-wide">RPS AI</span>
             </div>
-            <div class="battle-arena">
-                <div class="move-display" id="display-you">?</div>
-                <div class="vs">VS</div>
-                <div class="move-display" id="display-ai">🤖</div>
-            </div>
-            <div class="result-text" id="result-text">Initializing AI...</div>
-            <div class="controls">
-                <button class="move-btn" id="btn-R" onclick="playMove('R')" title="Rock" disabled>🪨</button>
-                <button class="move-btn" id="btn-P" onclick="playMove('P')" title="Paper" disabled>📄</button>
-                <button class="move-btn" id="btn-S" onclick="playMove('S')" title="Scissors" disabled>✂️</button>
+            <div class="nav-links flex items-center">
+                <a href="#" class="active">Play</a>
+                <a href="#">Leaderboard</a>
+                <a href="#">About</a>
+                <div class="w-8 h-8 rounded-full border border-gray-500 ml-5 flex items-center justify-center bg-gray-800">
+                    <span class="text-xs">👤</span>
+                </div>
             </div>
         </div>
-        <!-- Analytics Dashboard -->
-        <div class="glass-panel">
-            <h2 style="margin-bottom: 20px;">AI PERFORMANCE ANALYTICS</h2>
-            <p class="subtitle" style="margin-bottom: 10px;">Live AI Win Rate Tracking</p>
-            <div class="chart-container">
-                <canvas id="winRateChart"></canvas>
+
+        <div class="main-content">
+            
+            <!-- Left Area: Play -->
+            <div class="glass-card play-area relative">
+                <h1 class="title">AI ROCK-PAPER-SCISSORS</h1>
+                <h2 class="subtitle">YOUR MOVE</h2>
+                <p class="status-text" id="status-text">AI is ready</p>
+                <div class="score-display">
+                    Player: <span id="score-player">0</span> &nbsp;|&nbsp; AI: <span class="ai-score" id="score-ai">0</span>
+                </div>
+
+                <div class="moves-container">
+                    <button class="move-card move-rock" id="btn-R" onclick="playMove('R')">
+                        <div class="move-icon">✊</div>
+                        <div class="move-name">Rock</div>
+                    </button>
+                    <button class="move-card move-paper" id="btn-P" onclick="playMove('P')">
+                        <div class="move-icon">✋</div>
+                        <div class="move-name">Paper</div>
+                    </button>
+                    <button class="move-card move-scissors" id="btn-S" onclick="playMove('S')">
+                        <div class="move-icon">✌️</div>
+                        <div class="move-name">Scissors</div>
+                    </button>
+                </div>
+                
+                <div id="result-overlay" class="result-overlay">WIN!</div>
             </div>
+
+            <!-- Right Area: Analytics -->
+            <div class="flex flex-col gap-4" style="flex: 1;">
+                
+                <!-- Match Stats -->
+                <div class="flex justify-between items-center px-4 py-2 bg-gray-900 bg-opacity-50 rounded-lg text-sm border border-gray-700">
+                    <div><span class="text-green-400">Wins:</span> <span id="stat-wins" class="font-bold">0</span></div>
+                    <div><span class="text-red-400">Losses:</span> <span id="stat-losses" class="font-bold">0</span></div>
+                    <div><span class="text-gray-400">Draws:</span> <span id="stat-draws" class="font-bold">0</span></div>
+                    <div class="text-gray-500">Match <span id="stat-match" class="text-white">#1</span></div>
+                </div>
+
+                <div class="glass-card analytics-area">
+                    <div class="stats-header">
+                        <div>
+                            <h3 class="font-bold text-lg leading-tight">AI PERFORMANCE</h3>
+                            <h3 class="font-bold text-lg leading-tight">ANALYTICS</h3>
+                        </div>
+                        <select class="bg-gray-800 border border-gray-700 text-xs rounded px-2 py-1 outline-none">
+                            <option>Last 30 Days</option>
+                        </select>
+                    </div>
+
+                    <div class="chart-wrapper">
+                        <canvas id="winRateChart"></canvas>
+                    </div>
+
+                    <div class="flex justify-center gap-6 mt-4 text-xs font-semibold text-gray-400">
+                        <div class="flex items-center gap-2"><div class="w-3 h-3 rounded bg-purple-500"></div> AI WIN RATE (%)</div>
+                        <div class="flex items-center gap-2"><div class="w-3 h-3 rounded bg-pink-500"></div> GAMES PLAYED</div>
+                    </div>
+                </div>
+            </div>
+
         </div>
     </div>
+
     <script>
-        const emojiMap = { 'R': '🪨', 'P': '📄', 'S': '✂️', '': '?' };
         let history = [];
-        let scoreYou = 0; let scoreAI = 0; let scoreTies = 0;
+        let scorePlayer = 0; let scoreAI = 0; let scoreDraws = 0; let matches = 1;
         let nextAIMove = null;
         
-        // Initialize Chart
-        Chart.defaults.color = '#94a3b8';
-        Chart.defaults.font.family = 'Outfit';
+        // Setup Chart
+        Chart.defaults.color = '#64748b';
+        Chart.defaults.font.family = 'Inter';
         const ctx = document.getElementById('winRateChart').getContext('2d');
+        
+        // Gradient for line
+        const gradient = ctx.createLinearGradient(0, 0, 0, 300);
+        gradient.addColorStop(0, 'rgba(168, 85, 247, 0.5)');
+        gradient.addColorStop(1, 'rgba(168, 85, 247, 0)');
+
         const winRateChart = new Chart(ctx, {
             type: 'line',
             data: {
-                labels: [],
+                labels: ['Start'],
                 datasets: [{
-                    label: 'AI Win Rate (%)',
-                    data: [],
-                    borderColor: '#8b5cf6',
-                    backgroundColor: 'rgba(139, 92, 246, 0.2)',
+                    data: [50],
+                    borderColor: '#a855f7',
                     borderWidth: 3,
-                    tension: 0.4,
+                    backgroundColor: gradient,
                     fill: true,
+                    tension: 0.4,
                     pointBackgroundColor: '#ec4899',
-                    pointRadius: 4
+                    pointBorderColor: '#fff',
+                    pointBorderWidth: 2,
+                    pointRadius: 4,
+                    pointHoverRadius: 6
                 }]
             },
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
                 scales: {
-                    y: { beginAtZero: true, max: 100, grid: { color: 'rgba(255,255,255,0.05)' } },
-                    x: { grid: { color: 'rgba(255,255,255,0.05)' } }
+                    y: { 
+                        beginAtZero: true, max: 100, 
+                        grid: { color: 'rgba(255,255,255,0.05)', drawBorder: false },
+                        ticks: { callback: function(value) { return value + '%'; } }
+                    },
+                    x: { 
+                        grid: { color: 'rgba(255,255,255,0.05)', drawBorder: false },
+                        display: false 
+                    }
                 },
-                plugins: { legend: { display: false } }
+                plugins: { 
+                    legend: { display: false },
+                    tooltip: {
+                        backgroundColor: 'rgba(15, 23, 42, 0.9)',
+                        titleFont: { size: 13 },
+                        bodyFont: { size: 14, weight: 'bold' },
+                        padding: 10,
+                        displayColors: false,
+                        callbacks: {
+                            label: function(context) { return 'AI Win Rate: ' + context.parsed.y.toFixed(1) + '%'; }
+                        }
+                    }
+                }
             }
         });
 
@@ -164,9 +343,8 @@ HTML_CONTENT = """<!DOCTYPE html>
 
         async function fetchNextAIMove() {
             setButtonsEnabled(false);
-            const resultText = document.getElementById('result-text');
-            if (history.length === 0) resultText.innerHTML = 'AI is connecting...';
-            else resultText.innerHTML = 'AI is predicting your next move...';
+            const statusText = document.getElementById('status-text');
+            statusText.innerHTML = 'AI is calculating...';
             
             try {
                 const response = await fetch('/api/play', {
@@ -178,45 +356,70 @@ HTML_CONTENT = """<!DOCTYPE html>
                 const data = await response.json();
                 nextAIMove = data.ai_move;
                 
-                resultText.innerHTML = 'AI is ready! Make your move.';
-                resultText.className = 'result-text';
+                statusText.innerHTML = 'AI is ready. Your move.';
                 setButtonsEnabled(true);
             } catch (error) {
                 console.error(error);
-                resultText.innerHTML = 'Error connecting to API';
-                resultText.className = 'result-text lose';
+                statusText.innerHTML = 'Connection Error';
             }
         }
 
         function playMove(userMove) {
             if (!nextAIMove) return;
             const aiMove = nextAIMove;
-            document.getElementById('display-you').innerHTML = emojiMap[userMove];
-            document.getElementById('display-ai').innerHTML = emojiMap[aiMove];
-            const resultText = document.getElementById('result-text');
             
+            const overlay = document.getElementById('result-overlay');
+            overlay.className = 'result-overlay'; // reset
+            
+            // Calculate winner
             if (userMove === aiMove) {
-                scoreTies++; document.getElementById('score-ties').innerText = scoreTies;
-                resultText.innerHTML = "It's a Tie! 🤝"; resultText.className = 'result-text tie';
+                scoreDraws++; 
+                document.getElementById('stat-draws').innerText = scoreDraws;
+                overlay.innerHTML = 'DRAW';
+                overlay.classList.add('tie-text');
             } else if ( (userMove === 'R' && aiMove === 'S') || (userMove === 'P' && aiMove === 'R') || (userMove === 'S' && aiMove === 'P') ) {
-                scoreYou++; document.getElementById('score-you').innerText = scoreYou;
-                resultText.innerHTML = 'You Win! 🎉'; resultText.className = 'result-text win';
+                scorePlayer++; 
+                document.getElementById('score-player').innerText = scorePlayer;
+                document.getElementById('stat-wins').innerText = scorePlayer;
+                overlay.innerHTML = 'YOU WIN!';
+                overlay.classList.add('win-text');
             } else {
-                scoreAI++; document.getElementById('score-ai').innerText = scoreAI;
-                resultText.innerHTML = 'AI Wins! 🤖'; resultText.className = 'result-text lose';
+                scoreAI++; 
+                document.getElementById('score-ai').innerText = scoreAI;
+                document.getElementById('stat-losses').innerText = scoreAI;
+                overlay.innerHTML = 'AI WINS!';
+                overlay.classList.add('lose-text');
             }
 
+            // Show animation
+            void overlay.offsetWidth; // trigger reflow
+            overlay.classList.add('show-result');
+            
+            // Hide animation after 1s
+            setTimeout(() => { overlay.classList.remove('show-result'); }, 1000);
+
+            // Update Analytics
             history.push(userMove);
-            const totalGames = scoreYou + scoreAI + scoreTies;
+            matches++;
+            document.getElementById('stat-match').innerText = '#' + matches;
+            
+            const totalGames = scorePlayer + scoreAI + scoreDraws;
             const currentWinRate = (scoreAI / totalGames) * 100;
             
-            winRateChart.data.labels.push(totalGames);
+            winRateChart.data.labels.push('Match ' + matches);
             winRateChart.data.datasets[0].data.push(currentWinRate);
+            
+            // Keep only last 10 points for clean chart
+            if (winRateChart.data.labels.length > 10) {
+                winRateChart.data.labels.shift();
+                winRateChart.data.datasets[0].data.shift();
+            }
+            
             winRateChart.update();
-
             nextAIMove = null;
-            setTimeout(fetchNextAIMove, 1000);
+            setTimeout(fetchNextAIMove, 500);
         }
+        
         fetchNextAIMove();
     </script>
 </body>
